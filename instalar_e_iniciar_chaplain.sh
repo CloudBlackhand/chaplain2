@@ -13,12 +13,16 @@ cd "$DIR"
 
 # Variáveis globais
 REINSTALAR_DEPS="false"
+MODO_FOREGROUND="false"
 
 # Processar parâmetros
 for param in "$@"; do
     case $param in
         --reinstall)
         REINSTALAR_DEPS="true"
+        ;;
+        --foreground)
+        MODO_FOREGROUND="true"
         ;;
         *)
         # parâmetro desconhecido
@@ -320,20 +324,50 @@ iniciar_sistema() {
     # Registrar inicialização
     echo "Iniciando sistema Chaplain em $(date) - Porta: $PORT" >> "$DIR/logs/inicializacao.log"
     
-    # Iniciar o sistema em segundo plano
-    mostrar_progresso "Iniciando aplicação principal..."
-    nohup python3 src/main.py > "$DIR/logs/console_output.log" 2>&1 &
-    PID=$!
-    
-    # Verificar se iniciou corretamente
-    sleep 3
-    if ps -p $PID > /dev/null; then
-        mostrar_sucesso "Sistema iniciado com sucesso! (PID: $PID)"
-        echo "Sistema Chaplain iniciado com PID: $PID" >> "$DIR/logs/inicializacao.log"
-        return 0
+    # Iniciar o sistema
+    if [ "$MODO_FOREGROUND" = "true" ]; then
+        mostrar_progresso "Iniciando em modo foreground para mostrar o QR code..."
+        mostrar_aviso "AGUARDE o QR code aparecer abaixo para escanear com seu WhatsApp:"
+        echo ""
+        echo "================================================================"
+        echo "=                ESCANEIE O QR CODE COM SEU CELULAR            ="
+        echo "================================================================"
+        echo ""
+        
+        # Iniciar em primeiro plano para mostrar o QR code
+        cd "$DIR/src/whatsapp"
+        node whatsapp_bot.js &
+        NODE_PID=$!
+        
+        # Esperar 5 segundos para dar tempo do QR code aparecer
+        sleep 5
+        
+        # Iniciar a aplicação principal
+        cd "$DIR"
+        python3 src/main.py
+        
+        # Fechar processo do node quando a aplicação principal fechar
+        kill $NODE_PID 2>/dev/null
     else
-        mostrar_erro "Falha ao iniciar o sistema."
-        return 1
+        # Iniciar em segundo plano
+        mostrar_progresso "Iniciando aplicação principal em segundo plano..."
+        nohup python3 src/main.py > "$DIR/logs/console_output.log" 2>&1 &
+        PID=$!
+        
+        # Verificar se iniciou corretamente
+        sleep 3
+        if ps -p $PID > /dev/null; then
+            mostrar_sucesso "Sistema iniciado com sucesso! (PID: $PID)"
+            echo "Sistema Chaplain iniciado com PID: $PID" >> "$DIR/logs/inicializacao.log"
+            
+            mostrar_aviso "IMPORTANTE: Para ver o QR code, execute:"
+            echo "./instalar_e_iniciar_chaplain.sh --foreground"
+            
+            return 0
+        else
+            mostrar_erro "Falha ao iniciar o sistema."
+            return 1
+        fi
     fi
 }
 
@@ -401,6 +435,9 @@ main() {
     echo ""
     echo "Para parar o sistema, execute:"
     echo "pkill -f \"python3 src/main.py\""
+    echo ""
+    echo "Para exibir o QR code no terminal (primeira autenticação), execute:"
+    echo "./instalar_e_iniciar_chaplain.sh --foreground"
     echo ""
     echo "Se encontrar problemas com o Node.js, execute:"
     echo "./instalar_e_iniciar_chaplain.sh --reinstall"
