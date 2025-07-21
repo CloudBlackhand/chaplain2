@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Chaplain
+Comment=Instalar e Iniciar Sistema de Mensagens WhatsApp
+Exec=bash -c 'cd $(dirname %k) && ./instalar_e_iniciar_chaplain.sh'
+Terminal=true
+Icon=system-software-install
+Categories=Network;Office;System;
+StartupNotify=true 

@@ -1,11 +1,10 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Chaplain (Instalação Completa)
-Comment=Instalar e Iniciar Sistema de Mensagens WhatsApp
-Exec=/home/cloud/Downloads/chaplain/instalar_e_iniciar_chaplain.sh
-Path=/home/cloud/Downloads/chaplain
-Icon=system-software-install
+Name=Chaplain (QR Code)
+Comment=Instalar e Iniciar Sistema de Mensagens WhatsApp com QR Code
+Exec=bash -c 'cd $(dirname %k) && ./instalar_e_iniciar_chaplain.sh --foreground'
 Terminal=true
+Icon=system-software-install
 Categories=Network;Office;System;
 StartupNotify=true 
