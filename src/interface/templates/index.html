@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #075e54;
+            border-bottom: 2px solid #128c7e;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #128c7e;
+            margin-top: 30px;
+        }
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .endpoint {
+            margin-bottom: 20px;
+            border-left: 3px solid #128c7e;
+            padding-left: 15px;
+        }
+        .method {
+            font-weight: bold;
+            display: inline-block;
+            width: 70px;
+        }
+        .method.get {
+            color: #2196F3;
+        }
+        .method.post {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>WhatsApp API - Documentação</h1>
+    
+    <p>Esta é a API de integração para o sistema de WhatsApp. Utilize os endpoints abaixo para interagir com o sistema.</p>
+    
+    <h2>Endpoints Disponíveis</h2>
+    
+    <div class="endpoint">
+        <p><span class="method get">GET</span> <code>/status</code></p>
+        <p>Verifica o status atual da conexão com o WhatsApp.</p>
+        <pre>{
+  "ready": true,
+  "qrCode": null
+}</pre>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method get">GET</span> <code>/health</code></p>
+        <p>Verifica a saúde geral do sistema e suas estatísticas.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method get">GET</span> <code>/clients</code></p>
+        <p>Lista todos os clientes disponíveis na base de dados.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method get">GET</span> <code>/client/{sa}</code></p>
+        <p>Obtém detalhes de um cliente específico e seu histórico de mensagens.</p>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method post">POST</span> <code>/send-message</code></p>
+        <p>Envia uma mensagem individual para um cliente.</p>
+        <pre>{
+  "sa": "123456",
+  "message": "Olá, tudo bem?"
+}</pre>
+    </div>
+    
+    <div class="endpoint">
+        <p><span class="method post">POST</span> <code>/send-bulk</code></p>
+        <p>Envia mensagens em massa para múltiplos clientes.</p>
+        <pre>{
+  "sa_list": ["123456", "789012"],
+  "message_template": "Olá {nome}, tudo bem?"
+}</pre>
+    </div>
+
+    <div class="endpoint">
+        <p><span class="method post">POST</span> <code>/webhook/setup</code></p>
+        <p>Configura o URL do webhook para receber notificações de mensagens.</p>
+    </div>
+    
+    <h2>Status do Sistema</h2>
+    <p>Para monitorar o status do sistema, acesse <a href="/health">/health</a>.</p>
+    
+    <footer>
+        <p>© 2023 - Sistema de WhatsApp</p>
+    </footer>
+</body>
+</html> 

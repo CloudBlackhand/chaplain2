@@ -1,0 +1,62 @@
+# Ambiente virtual Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+
+# Arquivos de sessão WhatsApp
+src/whatsapp/whatsapp_session/session/
+
+# Arquivos de log
+logs/*
+!logs/.gitkeep
+
+# Arquivos de mensagens
+messages/*
+!messages/.gitkeep
+
+# Arquivos de armazenamento
+storage/*
+!storage/.gitkeep
+
+# Arquivos de sistema
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Arquivos IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Outros
+*.log
+.coverage
+htmlcov/ 
