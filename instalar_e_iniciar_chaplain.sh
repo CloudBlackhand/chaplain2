@@ -11,6 +11,21 @@ RESET="\033[0m"
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$DIR"
 
+# Variáveis globais
+REINSTALAR_DEPS="false"
+
+# Processar parâmetros
+for param in "$@"; do
+    case $param in
+        --reinstall)
+        REINSTALAR_DEPS="true"
+        ;;
+        *)
+        # parâmetro desconhecido
+        ;;
+    esac
+done
+
 # Função para mostrar progresso
 mostrar_progresso() {
     echo -e "${AZUL}[INFO]${RESET} $1"
@@ -110,13 +125,43 @@ instalar_deps_sistema() {
                 brew install node
                 ;;
             *)
-                mostrar_erro "Não foi possível instalar Node.js automaticamente. Por favor, instale Node.js 18+ manualmente."
+                mostrar_erro "Não foi possível instalar Node.js automaticamente. Por favor, instale Node.js 14+ manualmente."
                 return 1
                 ;;
         esac
     else
-        NODE_VERSION=$(node --version)
-        mostrar_sucesso "Node.js $NODE_VERSION encontrado"
+        NODE_VERSION=$(node --version | cut -d 'v' -f2 | cut -d '.' -f1)
+        mostrar_sucesso "Node.js $(node --version) encontrado"
+        
+        # Se a versão for menor que 14, sugerir atualização
+        if [ "$NODE_VERSION" -lt 14 ]; then
+            mostrar_aviso "A versão do Node.js é muito antiga. Recomendamos Node.js 18.x ou superior."
+            read -p "Deseja atualizar o Node.js? (S/n): " resposta
+            
+            if [ "$resposta" != "n" ] && [ "$resposta" != "N" ]; then
+                mostrar_progresso "Atualizando Node.js..."
+                
+                case $OS in
+                    "debian"|"ubuntu"|"raspbian"|"linuxmint")
+                        # Instalar Node.js via NodeSource
+                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                        sudo apt-get install -y nodejs
+                        ;;
+                    "fedora"|"rhel"|"centos")
+                        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+                        sudo yum install -y nodejs
+                        ;;
+                    "arch")
+                        sudo pacman -Sy nodejs npm
+                        ;;
+                    "macos")
+                        brew upgrade node
+                        ;;
+                esac
+                
+                mostrar_sucesso "Node.js atualizado: $(node --version)"
+            fi
+        fi
     fi
     
     # Instalar outros pacotes necessários
@@ -188,17 +233,51 @@ instalar_deps_nodejs() {
     mostrar_progresso "Verificando dependências Node.js..."
     
     # Verificar se o diretório node_modules existe
-    if [ ! -d "$DIR/src/whatsapp/node_modules" ]; then
+    if [ ! -d "$DIR/src/whatsapp/node_modules" ] || [ "$REINSTALAR_DEPS" = "true" ]; then
         mostrar_progresso "Instalando dependências do WhatsApp Bot..."
         cd "$DIR/src/whatsapp"
-        npm install
+        
+        # Limpar qualquer cache ou instalação anterior com problemas
+        if [ -d "node_modules" ]; then
+            mostrar_progresso "Removendo instalação anterior..."
+            rm -rf node_modules
+            rm -f package-lock.json
+        fi
+        
+        # Verificar a versão do npm
+        NPM_VERSION=$(npm --version)
+        mostrar_progresso "Usando npm versão $NPM_VERSION"
+        
+        # Atualizar npm para a última versão
+        mostrar_progresso "Atualizando npm para a versão mais recente..."
+        npm install -g npm@latest
+        
+        # Instalar dependências com opções para contornar problemas comuns
+        mostrar_progresso "Instalando dependências do WhatsApp Bot..."
+        npm install --no-fund --no-audit --legacy-peer-deps
         
         if [ $? -eq 0 ]; then
             mostrar_sucesso "Dependências Node.js instaladas com sucesso!"
         else
             mostrar_erro "Falha ao instalar dependências Node.js."
-            cd "$DIR"
-            return 1
+            mostrar_progresso "Tentando método alternativo..."
+            
+            # Tentar método alternativo com yarn se disponível
+            if command -v yarn &> /dev/null; then
+                mostrar_progresso "Tentando instalar com Yarn..."
+                rm -f package-lock.json
+                yarn install
+                
+                if [ $? -eq 0 ]; then
+                    mostrar_sucesso "Dependências instaladas com sucesso usando Yarn!"
+                else
+                    cd "$DIR"
+                    return 1
+                fi
+            else
+                cd "$DIR"
+                return 1
+            fi
         fi
         cd "$DIR"
     else
@@ -322,6 +401,9 @@ main() {
     echo ""
     echo "Para parar o sistema, execute:"
     echo "pkill -f \"python3 src/main.py\""
+    echo ""
+    echo "Se encontrar problemas com o Node.js, execute:"
+    echo "./instalar_e_iniciar_chaplain.sh --reinstall"
     echo ""
     
     # Em ambiente gráfico, mostrar notificação
