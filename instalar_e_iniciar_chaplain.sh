@@ -31,6 +31,117 @@ mostrar_aviso() {
     echo -e "${AMARELO}[AVISO]${RESET} $1"
 }
 
+# Detectar sistema operacional
+detectar_sistema() {
+    mostrar_progresso "Detectando sistema operacional..."
+    
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+        mostrar_sucesso "Sistema operacional detectado: $OS"
+    elif command -v apt-get &> /dev/null; then
+        OS="debian"
+        mostrar_sucesso "Sistema baseado em Debian detectado"
+    elif command -v yum &> /dev/null; then
+        OS="fedora"
+        mostrar_sucesso "Sistema baseado em RedHat/Fedora detectado"
+    elif command -v pacman &> /dev/null; then
+        OS="arch"
+        mostrar_sucesso "Sistema baseado em Arch detectado"
+    elif command -v brew &> /dev/null; then
+        OS="macos"
+        mostrar_sucesso "Sistema macOS detectado"
+    else
+        OS="desconhecido"
+        mostrar_aviso "Sistema operacional não identificado, assumindo instalação manual"
+    fi
+}
+
+# Instalar dependências do sistema
+instalar_deps_sistema() {
+    mostrar_progresso "Verificando dependências do sistema..."
+    
+    # Verificar Python
+    if ! command -v python3 &> /dev/null; then
+        mostrar_progresso "Python 3 não encontrado. Instalando..."
+        
+        case $OS in
+            "debian"|"ubuntu"|"raspbian"|"linuxmint")
+                sudo apt-get update
+                sudo apt-get install -y python3 python3-pip python3-venv
+                ;;
+            "fedora"|"rhel"|"centos")
+                sudo yum install -y python3 python3-pip
+                ;;
+            "arch")
+                sudo pacman -Sy python python-pip
+                ;;
+            "macos")
+                brew install python3
+                ;;
+            *)
+                mostrar_erro "Não foi possível instalar Python automaticamente. Por favor, instale Python 3.8+ manualmente."
+                return 1
+                ;;
+        esac
+    else
+        PYTHON_VERSION=$(python3 --version)
+        mostrar_sucesso "$PYTHON_VERSION encontrado"
+    fi
+    
+    # Verificar Node.js
+    if ! command -v node &> /dev/null; then
+        mostrar_progresso "Node.js não encontrado. Instalando..."
+        
+        case $OS in
+            "debian"|"ubuntu"|"raspbian"|"linuxmint")
+                # Instalar Node.js via NodeSource
+                curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+                sudo apt-get install -y nodejs
+                ;;
+            "fedora"|"rhel"|"centos")
+                curl -fsSL https://rpm.nodesource.com/setup_16.x | sudo bash -
+                sudo yum install -y nodejs
+                ;;
+            "arch")
+                sudo pacman -Sy nodejs npm
+                ;;
+            "macos")
+                brew install node
+                ;;
+            *)
+                mostrar_erro "Não foi possível instalar Node.js automaticamente. Por favor, instale Node.js 14+ manualmente."
+                return 1
+                ;;
+        esac
+    else
+        NODE_VERSION=$(node --version)
+        mostrar_sucesso "Node.js $NODE_VERSION encontrado"
+    fi
+    
+    # Instalar outros pacotes necessários
+    case $OS in
+        "debian"|"ubuntu"|"raspbian"|"linuxmint")
+            mostrar_progresso "Instalando dependências adicionais..."
+            sudo apt-get install -y git curl wget xdg-utils
+            ;;
+        "fedora"|"rhel"|"centos")
+            mostrar_progresso "Instalando dependências adicionais..."
+            sudo yum install -y git curl wget xdg-utils
+            ;;
+        "arch")
+            mostrar_progresso "Instalando dependências adicionais..."
+            sudo pacman -Sy git curl wget xdg-utils
+            ;;
+        "macos")
+            mostrar_progresso "Instalando dependências adicionais..."
+            brew install git curl wget
+            ;;
+    esac
+    
+    return 0
+}
+
 # Criar diretórios necessários
 criar_diretorios() {
     mostrar_progresso "Criando diretórios necessários..."
@@ -154,6 +265,16 @@ main() {
     echo "             INSTALAÇÃO E INICIALIZAÇÃO DO CHAPLAIN             "
     echo "================================================================"
     echo ""
+    
+    # Detectar sistema
+    detectar_sistema
+    
+    # Instalar dependências do sistema (Python, Node.js, etc)
+    instalar_deps_sistema
+    if [ $? -ne 0 ]; then
+        mostrar_erro "Falha na instalação das dependências do sistema."
+        read -p "Pressione Enter para continuar com a instalação mesmo assim..."
+    fi
     
     # Criar diretórios
     criar_diretorios
