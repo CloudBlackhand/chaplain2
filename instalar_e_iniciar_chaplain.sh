@@ -96,11 +96,11 @@ instalar_deps_sistema() {
         case $OS in
             "debian"|"ubuntu"|"raspbian"|"linuxmint")
                 # Instalar Node.js via NodeSource
-                curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+                curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
                 sudo apt-get install -y nodejs
                 ;;
             "fedora"|"rhel"|"centos")
-                curl -fsSL https://rpm.nodesource.com/setup_16.x | sudo bash -
+                curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
                 sudo yum install -y nodejs
                 ;;
             "arch")
@@ -110,7 +110,7 @@ instalar_deps_sistema() {
                 brew install node
                 ;;
             *)
-                mostrar_erro "Não foi possível instalar Node.js automaticamente. Por favor, instale Node.js 14+ manualmente."
+                mostrar_erro "Não foi possível instalar Node.js automaticamente. Por favor, instale Node.js 18+ manualmente."
                 return 1
                 ;;
         esac
