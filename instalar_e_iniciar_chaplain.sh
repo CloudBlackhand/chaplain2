@@ -326,23 +326,37 @@ iniciar_sistema() {
     
     # Iniciar o sistema
     if [ "$MODO_FOREGROUND" = "true" ]; then
-        mostrar_progresso "Iniciando em modo foreground para mostrar o QR code..."
+        # Primeiro: Inicializar apenas o bot do WhatsApp para autenticação
+        mostrar_progresso "Etapa 1/2: Inicializando bot WhatsApp para configuração..."
         mostrar_aviso "AGUARDE o QR code aparecer abaixo para escanear com seu WhatsApp:"
         echo ""
         echo "================================================================"
         echo "=                ESCANEIE O QR CODE COM SEU CELULAR            ="
+        echo "=                                                              ="
+        echo "=           APÓS ESCANEAR, AGUARDE A CONFIRMAÇÃO E             ="
+        echo "=          PRESSIONE QUALQUER TECLA PARA CONTINUAR             ="
         echo "================================================================"
         echo ""
         
-        # Iniciar em primeiro plano para mostrar o QR code
+        # Iniciar o bot WhatsApp em primeiro plano para autenticação
         cd "$DIR/src/whatsapp"
         node whatsapp_bot.js &
         NODE_PID=$!
         
-        # Esperar 5 segundos para dar tempo do QR code aparecer
-        sleep 5
+        # Aguardar autenticação
+        read -n 1 -s -r -p "Após escanear o QR code e ver 'Cliente WhatsApp pronto!', pressione qualquer tecla para continuar..."
+        echo ""
         
-        # Iniciar a aplicação principal
+        # Verificar se o WhatsApp está funcionando na porta esperada
+        sleep 2
+        if curl -s http://localhost:3000/api/status | grep -q "ready"; then
+            mostrar_sucesso "Autenticação WhatsApp concluída com sucesso!"
+        else
+            mostrar_aviso "Não foi possível confirmar a autenticação. Continuando mesmo assim..."
+        fi
+        
+        # Segundo: Iniciar a aplicação principal
+        mostrar_progresso "Etapa 2/2: Inicializando aplicação principal..."
         cd "$DIR"
         python3 src/main.py
         
