@@ -10,6 +10,7 @@ echo.
 set REINSTALAR_DEPS=false
 set MODO_FOREGROUND=false
 set DEBUG=true
+set SYSTEM_PATH=%PATH%
 
 :: Verificar parâmetros
 if "%1"=="--reinstall" (
@@ -37,6 +38,8 @@ if not exist storage mkdir storage
 :: Criar arquivo de log
 set LOG_FILE=%DIR%\logs\chaplain_install_log.txt
 echo Instalação iniciada em %date% %time% > %LOG_FILE%
+echo Sistema: Windows %OS% > %LOG_FILE%
+echo Diretório de instalação: %DIR% >> %LOG_FILE%
 
 :: Cores para mensagens
 set "GREEN=92"
@@ -175,7 +178,8 @@ if %errorlevel% neq 0 (
 
 :: Verificar versão do Python
 for /f "tokens=2 delims= " %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
-echo Python versão %PYTHON_VERSION% encontrado
+echo Python versão %PYTHON_VERSION% encontrado >> %LOG_FILE%
+call :mostrar_sucesso "Python versão %PYTHON_VERSION% encontrado"
 
 :: Verificar se o pip está instalado
 python -m pip --version >nul 2>&1
@@ -244,8 +248,9 @@ if %errorlevel% neq 0 (
 )
 
 :: Verificar versão do Node.js
-for /f "tokens=1 delims=v" %%i in ('node --version') do set NODE_VERSION=%%i
-echo Node.js versão %NODE_VERSION% encontrado
+for /f "tokens=1 delims=v" %%i in ('node --version 2^>^&1') do set NODE_VERSION=%%i
+echo Node.js versão %NODE_VERSION% encontrado >> %LOG_FILE%
+call :mostrar_sucesso "Node.js versão %NODE_VERSION% encontrado"
 
 :: Verificar se a versão do Node.js é adequada
 for /f "tokens=1 delims=." %%i in ("%NODE_VERSION%") do set NODE_MAJOR=%%i
@@ -378,10 +383,14 @@ if %errorlevel% neq 0 (
 )
 
 call :mostrar_progresso "Instalando pacotes Python necessários..."
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 if %errorlevel% neq 0 (
-    call :mostrar_erro "Falha ao instalar dependências Python. Detalhes no log de erro."
-    exit /b 1
+    call :mostrar_erro "Falha ao instalar dependências Python. Tentando com --no-cache-dir..."
+    python -m pip install -r requirements.txt --no-cache-dir
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao instalar dependências Python. Detalhes no log de erro."
+        exit /b 1
+    )
 )
 
 call :mostrar_sucesso "Ambiente Python configurado com sucesso!"
@@ -484,7 +493,7 @@ if "%MODO_FOREGROUND%"=="true" (
     cd %DIR%\src\whatsapp
     
     :: Iniciar o bot do WhatsApp em uma nova janela permanente
-    start "Chaplain - WhatsApp Bot" /min cmd /c "title Chaplain - WhatsApp Bot && node whatsapp_bot.js && pause"
+    start "Chaplain - WhatsApp Bot" /min cmd /k "title Chaplain - WhatsApp Bot && node whatsapp_bot.js"
     
     :: Aguardar o serviço iniciar
     call :mostrar_progresso "Aguardando o serviço WhatsApp iniciar..."
@@ -503,7 +512,7 @@ if "%MODO_FOREGROUND%"=="true" (
     pause > nul
     
     :: Verificar se a autenticação foi concluída
-    curl -s http://localhost:3000/api/status | findstr "ready" >nul
+    curl -s http://localhost:3000/api/status 2>nul | findstr "ready" >nul
     if %errorlevel% equ 0 (
         call :mostrar_sucesso "Autenticação WhatsApp concluída com sucesso!"
     ) else (
@@ -524,9 +533,9 @@ if "%MODO_FOREGROUND%"=="true" (
     if %errorlevel% neq 0 (
         call :mostrar_erro "A aplicação principal não foi iniciada corretamente."
         exit /b 1
-    } else {
+    ) else (
         call :mostrar_sucesso "Aplicação principal iniciada com sucesso!"
-    }
+    )
     
 ) else (
     call :mostrar_progresso "Iniciando o sistema em segundo plano..."
@@ -535,7 +544,7 @@ if "%MODO_FOREGROUND%"=="true" (
     
     :: Iniciar o bot do WhatsApp em uma nova janela permanente
     cd %DIR%\src\whatsapp
-    start "Chaplain - WhatsApp Bot" /min cmd /c "title Chaplain - WhatsApp Bot && node whatsapp_bot.js && pause"
+    start "Chaplain - WhatsApp Bot" /min cmd /k "title Chaplain - WhatsApp Bot && node whatsapp_bot.js"
     
     :: Aguardar o serviço iniciar
     call :mostrar_progresso "Aguardando o serviço WhatsApp iniciar..."
@@ -544,9 +553,8 @@ if "%MODO_FOREGROUND%"=="true" (
     :: Verificar se o bot está em execução
     tasklist /fi "imagename eq node.exe" /v | findstr /i "whatsapp_bot.js" >nul
     if %errorlevel% neq 0 (
-        call :mostrar_erro "O bot WhatsApp não foi iniciado corretamente."
-        exit /b 1
-    }
+        call :mostrar_aviso "O bot WhatsApp não parece estar em execução."
+    )
     
     :: Iniciar a aplicação principal em uma nova janela permanente
     cd %DIR%
@@ -559,14 +567,14 @@ if "%MODO_FOREGROUND%"=="true" (
     tasklist /fi "imagename eq node.exe" /v | findstr /i "whatsapp_bot.js" >nul
     if %errorlevel% neq 0 (
         call :mostrar_aviso "O serviço WhatsApp não parece estar em execução."
-    }
+    )
     
     tasklist /fi "imagename eq python.exe" /v | findstr /i "main.py" >nul
     if %errorlevel% neq 0 (
         call :mostrar_aviso "A aplicação principal não parece estar em execução."
-    } else {
+    ) else (
         call :mostrar_sucesso "Sistema Chaplain iniciado em segundo plano!"
-    }
+    )
     
     call :mostrar_aviso "Se este é o primeiro uso, feche esta janela e execute com --foreground para escanear o QR code."
 )
