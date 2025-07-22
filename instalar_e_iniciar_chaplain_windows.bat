@@ -79,11 +79,35 @@ call :mostrar_titulo "Verificando dependências do sistema..."
 :: Verificar se o Python está instalado
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    call :mostrar_erro "Python não encontrado! Por favor, instale o Python 3.8 ou superior."
-    echo Você pode baixar o Python em: https://www.python.org/downloads/windows/
-    echo Certifique-se de marcar "Add Python to PATH" durante a instalação.
-    pause
-    exit /b 1
+    call :mostrar_aviso "Python não encontrado! Baixando e instalando Python 3.10..."
+    
+    :: Criar diretório temporário para downloads
+    if not exist temp mkdir temp
+    cd temp
+    
+    :: Baixar Python
+    call :mostrar_progresso "Baixando Python 3.10..."
+    curl -L -o python_installer.exe https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe
+    
+    :: Instalar Python (silenciosamente, incluir no PATH, e pip)
+    call :mostrar_progresso "Instalando Python 3.10..."
+    start /wait python_installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_pip=1
+    
+    :: Limpar
+    del python_installer.exe
+    cd %DIR%
+    
+    :: Verificar se a instalação foi bem-sucedida
+    python --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha na instalação automática do Python. Por favor, instale manualmente."
+        echo Você pode baixar o Python em: https://www.python.org/downloads/windows/
+        echo Certifique-se de marcar "Add Python to PATH" durante a instalação.
+        pause
+        exit /b 1
+    ) else (
+        call :mostrar_sucesso "Python instalado com sucesso!"
+    )
 )
 
 :: Verificar versão do Python
@@ -93,7 +117,7 @@ echo Python versão %PYTHON_VERSION% encontrado
 :: Verificar se o pip está instalado
 python -m pip --version >nul 2>&1
 if %errorlevel% neq 0 (
-    call :mostrar_erro "pip não encontrado! Instalando..."
+    call :mostrar_progresso "pip não encontrado! Instalando..."
     curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
     python get-pip.py
     del get-pip.py
@@ -102,10 +126,39 @@ if %errorlevel% neq 0 (
 :: Verificar se o Node.js está instalado
 node --version >nul 2>&1
 if %errorlevel% neq 0 (
-    call :mostrar_erro "Node.js não encontrado! Por favor, instale o Node.js 18.x (LTS)."
-    echo Você pode baixar o Node.js em: https://nodejs.org/
-    pause
-    exit /b 1
+    call :mostrar_aviso "Node.js não encontrado! Baixando e instalando Node.js 18.x LTS..."
+    
+    :: Criar diretório temporário para downloads
+    if not exist temp mkdir temp
+    cd temp
+    
+    :: Baixar Node.js
+    call :mostrar_progresso "Baixando Node.js 18.x LTS..."
+    curl -L -o node_installer.msi https://nodejs.org/dist/v18.18.2/node-v18.18.2-x64.msi
+    
+    :: Instalar Node.js silenciosamente
+    call :mostrar_progresso "Instalando Node.js 18.x LTS..."
+    start /wait msiexec /i node_installer.msi /quiet /qn /norestart
+    
+    :: Limpar
+    del node_installer.msi
+    cd %DIR%
+    
+    :: Verificar se a instalação foi bem-sucedida
+    node --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha na instalação automática do Node.js. Por favor, instale manualmente."
+        echo Você pode baixar o Node.js em: https://nodejs.org/
+        pause
+        exit /b 1
+    ) else (
+        call :mostrar_sucesso "Node.js instalado com sucesso!"
+        
+        :: Reiniciar o PATH para reconhecer Node.js
+        call :mostrar_progresso "Atualizando variáveis de ambiente..."
+        setx PATH "%PATH%"
+        set PATH=%PATH%
+    )
 )
 
 :: Verificar versão do Node.js
@@ -115,17 +168,68 @@ echo Node.js versão %NODE_VERSION% encontrado
 :: Verificar se a versão do Node.js é adequada
 for /f "tokens=1 delims=." %%i in ("%NODE_VERSION%") do set NODE_MAJOR=%%i
 if %NODE_MAJOR% LSS 14 (
-    call :mostrar_erro "Versão do Node.js muito antiga. Recomendamos instalar a versão 18.x (LTS)."
-    echo Você pode baixar o Node.js em: https://nodejs.org/
-    pause
-    exit /b 1
+    call :mostrar_aviso "Versão do Node.js muito antiga. Atualizando para a versão 18.x LTS..."
+    
+    :: Criar diretório temporário para downloads
+    if not exist temp mkdir temp
+    cd temp
+    
+    :: Baixar Node.js mais recente
+    call :mostrar_progresso "Baixando Node.js 18.x LTS..."
+    curl -L -o node_installer.msi https://nodejs.org/dist/v18.18.2/node-v18.18.2-x64.msi
+    
+    :: Instalar Node.js silenciosamente
+    call :mostrar_progresso "Instalando Node.js 18.x LTS..."
+    start /wait msiexec /i node_installer.msi /quiet /qn /norestart
+    
+    :: Limpar
+    del node_installer.msi
+    cd %DIR%
+    
+    :: Verificar se a instalação foi bem-sucedida
+    node --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha na atualização do Node.js. Por favor, atualize manualmente."
+        pause
+    ) else (
+        call :mostrar_sucesso "Node.js atualizado com sucesso!"
+        
+        :: Reiniciar o PATH para reconhecer Node.js
+        call :mostrar_progresso "Atualizando variáveis de ambiente..."
+        setx PATH "%PATH%"
+        set PATH=%PATH%
+    )
 )
 
 :: Verificar se o npm está instalado
 npm --version >nul 2>&1
 if %errorlevel% neq 0 (
-    call :mostrar_erro "npm não encontrado! Por favor, reinstale o Node.js."
-    exit /b 1
+    call :mostrar_erro "npm não encontrado! Tentando reinstalar o Node.js..."
+    
+    :: Criar diretório temporário para downloads
+    if not exist temp mkdir temp
+    cd temp
+    
+    :: Baixar Node.js
+    call :mostrar_progresso "Baixando Node.js 18.x LTS..."
+    curl -L -o node_installer.msi https://nodejs.org/dist/v18.18.2/node-v18.18.2-x64.msi
+    
+    :: Instalar Node.js silenciosamente
+    call :mostrar_progresso "Reinstalando Node.js 18.x LTS..."
+    start /wait msiexec /i node_installer.msi /quiet /qn /norestart
+    
+    :: Limpar
+    del node_installer.msi
+    cd %DIR%
+    
+    :: Verificar se a instalação foi bem-sucedida
+    npm --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha na reinstalação do Node.js. Por favor, reinstale manualmente."
+        exit /b 1
+    ) else (
+        call :mostrar_sucesso "Node.js reinstalado com sucesso!"
+    )
 )
 
 call :mostrar_sucesso "Todas as dependências do sistema estão instaladas!"
