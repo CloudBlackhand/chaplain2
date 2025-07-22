@@ -9,4 +9,9 @@ echo Python e Node.js serão instalados automaticamente se necessário.
 echo.
 
 :: Executar o script de instalação em modo normal
-call "%~dp0instalar_e_iniciar_chaplain_windows.bat" 
+call "%~dp0instalar_e_iniciar_chaplain_windows.bat"
+
+:: Garantir que a janela não feche imediatamente
+echo.
+echo Instalação finalizada. Pressione qualquer tecla para encerrar...
+pause > nul 

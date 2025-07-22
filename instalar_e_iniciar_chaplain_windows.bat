@@ -9,6 +9,7 @@ echo.
 
 set REINSTALAR_DEPS=false
 set MODO_FOREGROUND=false
+set DEBUG=true
 
 :: Verificar parâmetros
 if "%1"=="--reinstall" (
@@ -28,6 +29,10 @@ if "%2"=="--foreground" (
 set DIR=%~dp0
 cd %DIR%
 
+:: Criar arquivo de log
+set LOG_FILE=%DIR%\chaplain_install_log.txt
+echo Instalação iniciada em %date% %time% > %LOG_FILE%
+
 :: Cores para mensagens
 set "GREEN=92"
 set "YELLOW=93"
@@ -38,39 +43,78 @@ set "BLUE=94"
 call :mostrar_titulo "Verificando dependências do sistema..."
 
 :: Verificar e instalar dependências
+echo Verificando dependências do sistema... >> %LOG_FILE%
 call :verificar_deps_sistema
+if %errorlevel% neq 0 (
+    echo ERRO: Falha ao verificar dependências do sistema >> %LOG_FILE%
+    goto :erro_final
+)
 
 :: Verificar e configurar ambiente Python
+echo Configurando ambiente Python... >> %LOG_FILE%
 call :configurar_python
+if %errorlevel% neq 0 (
+    echo ERRO: Falha ao configurar ambiente Python >> %LOG_FILE%
+    goto :erro_final
+)
 
 :: Verificar e configurar Node.js
+echo Configurando Node.js... >> %LOG_FILE%
 call :configurar_nodejs
+if %errorlevel% neq 0 (
+    echo ERRO: Falha ao configurar Node.js >> %LOG_FILE%
+    goto :erro_final
+)
 
 :: Iniciar o sistema
+echo Iniciando o sistema... >> %LOG_FILE%
 call :iniciar_sistema
+if %errorlevel% neq 0 (
+    echo ERRO: Falha ao iniciar o sistema >> %LOG_FILE%
+    goto :erro_final
+)
 
-goto :eof
+:: Finalização bem-sucedida
+echo Instalação e inicialização concluídas com sucesso em %date% %time% >> %LOG_FILE%
+if "%DEBUG%"=="true" (
+    echo.
+    echo Pressione qualquer tecla para encerrar...
+    pause > nul
+)
+exit /b 0
+
+:erro_final
+call :mostrar_erro "Ocorreram erros durante a instalação. Verifique o arquivo de log: %LOG_FILE%"
+echo.
+echo Pressione qualquer tecla para encerrar...
+pause > nul
+exit /b 1
 
 :mostrar_titulo
 echo.
 echo [%BLUE%m%~1[0m
 echo.
+echo %~1 >> %LOG_FILE%
 goto :eof
 
 :mostrar_sucesso
 echo [%GREEN%m%~1[0m
+echo %~1 >> %LOG_FILE%
 goto :eof
 
 :mostrar_aviso
 echo [%YELLOW%m%~1[0m
+echo AVISO: %~1 >> %LOG_FILE%
 goto :eof
 
 :mostrar_erro
 echo [%RED%m%~1[0m
+echo ERRO: %~1 >> %LOG_FILE%
 goto :eof
 
 :mostrar_progresso
 echo [%BLUE%m%~1[0m
+echo %~1 >> %LOG_FILE%
 goto :eof
 
 :verificar_deps_sistema
@@ -88,6 +132,11 @@ if %errorlevel% neq 0 (
     :: Baixar Python
     call :mostrar_progresso "Baixando Python 3.10..."
     curl -L -o python_installer.exe https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao baixar o Python. Verifique sua conexão com a internet."
+        cd %DIR%
+        exit /b 1
+    )
     
     :: Instalar Python (silenciosamente, incluir no PATH, e pip)
     call :mostrar_progresso "Instalando Python 3.10..."
@@ -107,6 +156,14 @@ if %errorlevel% neq 0 (
         exit /b 1
     ) else (
         call :mostrar_sucesso "Python instalado com sucesso!"
+        
+        :: Reiniciar o PATH para reconhecer Python
+        call :mostrar_progresso "Atualizando variáveis de ambiente..."
+        setx PATH "%PATH%" >nul
+        set PATH=%PATH%
+        
+        :: Dar tempo para o sistema reconhecer as alterações
+        timeout /t 5 /nobreak > nul
     )
 )
 
@@ -119,7 +176,17 @@ python -m pip --version >nul 2>&1
 if %errorlevel% neq 0 (
     call :mostrar_progresso "pip não encontrado! Instalando..."
     curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao baixar o script do pip. Verifique sua conexão com a internet."
+        exit /b 1
+    )
+    
     python get-pip.py
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao instalar o pip."
+        exit /b 1
+    )
+    
     del get-pip.py
 )
 
@@ -135,6 +202,11 @@ if %errorlevel% neq 0 (
     :: Baixar Node.js
     call :mostrar_progresso "Baixando Node.js 18.x LTS..."
     curl -L -o node_installer.msi https://nodejs.org/dist/v18.18.2/node-v18.18.2-x64.msi
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao baixar o Node.js. Verifique sua conexão com a internet."
+        cd %DIR%
+        exit /b 1
+    }
     
     :: Instalar Node.js silenciosamente
     call :mostrar_progresso "Instalando Node.js 18.x LTS..."
@@ -156,8 +228,11 @@ if %errorlevel% neq 0 (
         
         :: Reiniciar o PATH para reconhecer Node.js
         call :mostrar_progresso "Atualizando variáveis de ambiente..."
-        setx PATH "%PATH%"
+        setx PATH "%PATH%" >nul
         set PATH=%PATH%
+        
+        :: Dar tempo para o sistema reconhecer as alterações
+        timeout /t 5 /nobreak > nul
     )
 )
 
@@ -177,6 +252,11 @@ if %NODE_MAJOR% LSS 14 (
     :: Baixar Node.js mais recente
     call :mostrar_progresso "Baixando Node.js 18.x LTS..."
     curl -L -o node_installer.msi https://nodejs.org/dist/v18.18.2/node-v18.18.2-x64.msi
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao baixar o Node.js. Verifique sua conexão com a internet."
+        cd %DIR%
+        exit /b 1
+    )
     
     :: Instalar Node.js silenciosamente
     call :mostrar_progresso "Instalando Node.js 18.x LTS..."
@@ -191,13 +271,17 @@ if %NODE_MAJOR% LSS 14 (
     if %errorlevel% neq 0 (
         call :mostrar_erro "Falha na atualização do Node.js. Por favor, atualize manualmente."
         pause
+        exit /b 1
     ) else (
         call :mostrar_sucesso "Node.js atualizado com sucesso!"
         
         :: Reiniciar o PATH para reconhecer Node.js
         call :mostrar_progresso "Atualizando variáveis de ambiente..."
-        setx PATH "%PATH%"
+        setx PATH "%PATH%" >nul
         set PATH=%PATH%
+        
+        :: Dar tempo para o sistema reconhecer as alterações
+        timeout /t 5 /nobreak > nul
     )
 )
 
@@ -213,6 +297,11 @@ if %errorlevel% neq 0 (
     :: Baixar Node.js
     call :mostrar_progresso "Baixando Node.js 18.x LTS..."
     curl -L -o node_installer.msi https://nodejs.org/dist/v18.18.2/node-v18.18.2-x64.msi
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao baixar o Node.js. Verifique sua conexão com a internet."
+        cd %DIR%
+        exit /b 1
+    )
     
     :: Instalar Node.js silenciosamente
     call :mostrar_progresso "Reinstalando Node.js 18.x LTS..."
@@ -229,11 +318,14 @@ if %errorlevel% neq 0 (
         exit /b 1
     ) else (
         call :mostrar_sucesso "Node.js reinstalado com sucesso!"
+        
+        :: Dar tempo para o sistema reconhecer as alterações
+        timeout /t 5 /nobreak > nul
     )
 )
 
 call :mostrar_sucesso "Todas as dependências do sistema estão instaladas!"
-goto :eof
+exit /b 0
 
 :configurar_python
 call :mostrar_titulo "Configurando ambiente Python..."
@@ -242,20 +334,43 @@ call :mostrar_titulo "Configurando ambiente Python..."
 if not exist venv (
     call :mostrar_progresso "Criando ambiente virtual Python..."
     python -m venv venv
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao criar ambiente virtual Python. Tentando instalar venv..."
+        python -m pip install virtualenv
+        python -m virtualenv venv
+        if %errorlevel% neq 0 (
+            call :mostrar_erro "Falha ao criar ambiente virtual Python."
+            exit /b 1
+        )
+    )
 ) else (
     call :mostrar_progresso "Ambiente virtual já existe, usando existente..."
 )
 
 :: Ativar ambiente virtual
+call :mostrar_progresso "Ativando ambiente virtual..."
 call venv\Scripts\activate.bat
+if %errorlevel% neq 0 (
+    call :mostrar_erro "Falha ao ativar o ambiente virtual Python."
+    exit /b 1
+)
 
 :: Instalar dependências Python
 call :mostrar_progresso "Instalando dependências Python..."
 python -m pip install --upgrade pip
+if %errorlevel% neq 0 (
+    call :mostrar_erro "Falha ao atualizar o pip."
+    exit /b 1
+)
+
 pip install -r requirements.txt
+if %errorlevel% neq 0 (
+    call :mostrar_erro "Falha ao instalar dependências Python. Detalhes no log de erro."
+    exit /b 1
+)
 
 call :mostrar_sucesso "Ambiente Python configurado com sucesso!"
-goto :eof
+exit /b 0
 
 :configurar_nodejs
 call :mostrar_titulo "Configurando Node.js..."
@@ -272,6 +387,9 @@ if "%REINSTALAR_DEPS%"=="true" (
 :: Atualizar npm para a versão mais recente
 call :mostrar_progresso "Atualizando npm para a versão mais recente..."
 call npm install -g npm@latest
+if %errorlevel% neq 0 (
+    call :mostrar_aviso "Falha ao atualizar o npm. Continuando com a versão atual..."
+)
 
 :: Instalar dependências do WhatsApp bot
 call :mostrar_progresso "Instalando dependências do WhatsApp bot..."
@@ -286,6 +404,10 @@ if %errorlevel% neq 0 (
     if %errorlevel% neq 0 (
         call :mostrar_progresso "Instalando yarn..."
         npm install -g yarn
+        if %errorlevel% neq 0 (
+            call :mostrar_erro "Falha ao instalar o yarn."
+            exit /b 1
+        }
     )
     
     :: Tentar instalação com yarn
@@ -301,7 +423,7 @@ if %errorlevel% neq 0 (
 cd %DIR%
 
 call :mostrar_sucesso "Node.js configurado com sucesso!"
-goto :eof
+exit /b 0
 
 :iniciar_sistema
 call :mostrar_titulo "Iniciando o sistema Chaplain..."
@@ -351,7 +473,15 @@ if "%MODO_FOREGROUND%"=="true" (
     
     cd %DIR%\src\whatsapp
     start /b cmd /c node whatsapp_bot.js
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao iniciar o bot WhatsApp."
+        exit /b 1
+    )
     
+    echo Aguardando o serviço iniciar... (10 segundos)
+    timeout /t 10 /nobreak > nul
+    
+    echo Aguardando QR Code e autenticação...
     pause
     
     :: Verificar se a autenticação foi concluída
@@ -365,20 +495,63 @@ if "%MODO_FOREGROUND%"=="true" (
     call :mostrar_progresso "Etapa 2/2: Inicializando aplicação principal..."
     cd %DIR%
     call venv\Scripts\activate.bat
-    python src\main.py
+    start cmd /c "python src\main.py && pause"
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao iniciar a aplicação principal."
+        exit /b 1
+    }
     
-    :: Encerrar processo do WhatsApp bot
-    taskkill /f /fi "imagename eq node.exe" /v | findstr /i "whatsapp_bot.js" >nul
+    :: Aguardar um pouco para garantir que o processo inicie
+    timeout /t 5 /nobreak > nul
+    
+    :: Verificar se o processo está em execução
+    tasklist /fi "imagename eq python.exe" /v | findstr /i "main.py" >nul
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "A aplicação principal não parece estar em execução."
+        exit /b 1
+    } else {
+        call :mostrar_sucesso "Aplicação principal iniciada com sucesso!"
+    }
+    
 ) else (
     call :mostrar_progresso "Iniciando o sistema em segundo plano..."
     call :mostrar_aviso "NOTA: Se esta é a primeira vez que você executa o sistema,"
     call :mostrar_aviso "você precisa usar a opção --foreground para escanear o QR code!"
     
-    cd %DIR%
-    start cmd /c "call venv\Scripts\activate.bat && python src\main.py"
+    cd %DIR%\src\whatsapp
+    start cmd /c "node whatsapp_bot.js && pause"
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao iniciar o bot WhatsApp."
+        exit /b 1
+    }
     
-    call :mostrar_sucesso "Sistema Chaplain iniciado em segundo plano!"
+    :: Aguardar um pouco para garantir que o serviço WhatsApp inicie
+    timeout /t 10 /nobreak > nul
+    
+    cd %DIR%
+    start cmd /c "call venv\Scripts\activate.bat && python src\main.py && pause"
+    if %errorlevel% neq 0 (
+        call :mostrar_erro "Falha ao iniciar a aplicação principal."
+        exit /b 1
+    }
+    
+    :: Aguardar um pouco para garantir que o processo inicie
+    timeout /t 5 /nobreak > nul
+    
+    :: Verificar se os processos estão em execução
+    tasklist /fi "imagename eq node.exe" /v | findstr /i "whatsapp_bot.js" >nul
+    if %errorlevel% neq 0 (
+        call :mostrar_aviso "O serviço WhatsApp não parece estar em execução."
+    }
+    
+    tasklist /fi "imagename eq python.exe" /v | findstr /i "main.py" >nul
+    if %errorlevel% neq 0 (
+        call :mostrar_aviso "A aplicação principal não parece estar em execução."
+    } else {
+        call :mostrar_sucesso "Sistema Chaplain iniciado em segundo plano!"
+    }
+    
     call :mostrar_aviso "Se este é o primeiro uso, feche esta janela e execute com --foreground para escanear o QR code."
 )
 
-goto :eof 
+exit /b 0 
