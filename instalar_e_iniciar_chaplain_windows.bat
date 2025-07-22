@@ -29,8 +29,13 @@ if "%2"=="--foreground" (
 set DIR=%~dp0
 cd %DIR%
 
+:: Criar diretórios necessários, se não existirem
+if not exist logs mkdir logs
+if not exist messages mkdir messages
+if not exist storage mkdir storage
+
 :: Criar arquivo de log
-set LOG_FILE=%DIR%\chaplain_install_log.txt
+set LOG_FILE=%DIR%\logs\chaplain_install_log.txt
 echo Instalação iniciada em %date% %time% > %LOG_FILE%
 
 :: Cores para mensagens
@@ -146,24 +151,25 @@ if %errorlevel% neq 0 (
     del python_installer.exe
     cd %DIR%
     
+    :: Reiniciar o PATH para reconhecer o Python
+    call :mostrar_progresso "Atualizando variáveis de ambiente para Python..."
+    for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH') do set SYSTEM_PATH=%%B
+    set PATH=%SYSTEM_PATH%
+    
+    :: Dar tempo para o sistema reconhecer o novo PATH
+    timeout /t 5 /nobreak > nul
+    
     :: Verificar se a instalação foi bem-sucedida
     python --version >nul 2>&1
     if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha na instalação automática do Python. Por favor, instale manualmente."
+        call :mostrar_erro "Falha na instalação automática do Python. Por favor, reinicie o computador e tente novamente."
+        echo A instalação do Python requer reinicialização para ser detectada corretamente.
         echo Você pode baixar o Python em: https://www.python.org/downloads/windows/
         echo Certifique-se de marcar "Add Python to PATH" durante a instalação.
         pause
         exit /b 1
     ) else (
         call :mostrar_sucesso "Python instalado com sucesso!"
-        
-        :: Reiniciar o PATH para reconhecer Python
-        call :mostrar_progresso "Atualizando variáveis de ambiente..."
-        setx PATH "%PATH%" >nul
-        set PATH=%PATH%
-        
-        :: Dar tempo para o sistema reconhecer as alterações
-        timeout /t 5 /nobreak > nul
     )
 )
 
@@ -175,7 +181,7 @@ echo Python versão %PYTHON_VERSION% encontrado
 python -m pip --version >nul 2>&1
 if %errorlevel% neq 0 (
     call :mostrar_progresso "pip não encontrado! Instalando..."
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    curl -L https://bootstrap.pypa.io/get-pip.py -o get-pip.py
     if %errorlevel% neq 0 (
         call :mostrar_erro "Falha ao baixar o script do pip. Verifique sua conexão com a internet."
         exit /b 1
@@ -206,7 +212,7 @@ if %errorlevel% neq 0 (
         call :mostrar_erro "Falha ao baixar o Node.js. Verifique sua conexão com a internet."
         cd %DIR%
         exit /b 1
-    }
+    )
     
     :: Instalar Node.js silenciosamente
     call :mostrar_progresso "Instalando Node.js 18.x LTS..."
@@ -216,23 +222,24 @@ if %errorlevel% neq 0 (
     del node_installer.msi
     cd %DIR%
     
+    :: Reiniciar o PATH para reconhecer o Node.js
+    call :mostrar_progresso "Atualizando variáveis de ambiente para Node.js..."
+    for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH') do set SYSTEM_PATH=%%B
+    set PATH=%SYSTEM_PATH%
+    
+    :: Dar tempo para o sistema reconhecer o novo PATH
+    timeout /t 5 /nobreak > nul
+    
     :: Verificar se a instalação foi bem-sucedida
     node --version >nul 2>&1
     if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha na instalação automática do Node.js. Por favor, instale manualmente."
+        call :mostrar_erro "Falha na instalação automática do Node.js. Por favor, reinicie o computador e tente novamente."
+        echo A instalação do Node.js requer reinicialização para ser detectada corretamente.
         echo Você pode baixar o Node.js em: https://nodejs.org/
         pause
         exit /b 1
     ) else (
         call :mostrar_sucesso "Node.js instalado com sucesso!"
-        
-        :: Reiniciar o PATH para reconhecer Node.js
-        call :mostrar_progresso "Atualizando variáveis de ambiente..."
-        setx PATH "%PATH%" >nul
-        set PATH=%PATH%
-        
-        :: Dar tempo para o sistema reconhecer as alterações
-        timeout /t 5 /nobreak > nul
     )
 )
 
@@ -277,8 +284,8 @@ if %NODE_MAJOR% LSS 14 (
         
         :: Reiniciar o PATH para reconhecer Node.js
         call :mostrar_progresso "Atualizando variáveis de ambiente..."
-        setx PATH "%PATH%" >nul
-        set PATH=%PATH%
+        for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH') do set SYSTEM_PATH=%%B
+        set PATH=%SYSTEM_PATH%
         
         :: Dar tempo para o sistema reconhecer as alterações
         timeout /t 5 /nobreak > nul
@@ -314,7 +321,7 @@ if %errorlevel% neq 0 (
     :: Verificar se a instalação foi bem-sucedida
     npm --version >nul 2>&1
     if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha na reinstalação do Node.js. Por favor, reinstale manualmente."
+        call :mostrar_erro "Falha na reinstalação do Node.js. Por favor, reinicie o computador e tente novamente."
         exit /b 1
     ) else (
         call :mostrar_sucesso "Node.js reinstalado com sucesso!"
@@ -330,12 +337,19 @@ exit /b 0
 :configurar_python
 call :mostrar_titulo "Configurando ambiente Python..."
 
+:: Verificar módulo venv
+python -c "import venv" >nul 2>&1
+if %errorlevel% neq 0 (
+    call :mostrar_progresso "Instalando módulo venv..."
+    python -m pip install virtualenv
+)
+
 :: Verificar e criar ambiente virtual
 if not exist venv (
     call :mostrar_progresso "Criando ambiente virtual Python..."
     python -m venv venv
     if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha ao criar ambiente virtual Python. Tentando instalar venv..."
+        call :mostrar_erro "Falha ao criar ambiente virtual Python. Tentando com virtualenv..."
         python -m pip install virtualenv
         python -m virtualenv venv
         if %errorlevel% neq 0 (
@@ -363,6 +377,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+call :mostrar_progresso "Instalando pacotes Python necessários..."
 pip install -r requirements.txt
 if %errorlevel% neq 0 (
     call :mostrar_erro "Falha ao instalar dependências Python. Detalhes no log de erro."
@@ -407,7 +422,7 @@ if %errorlevel% neq 0 (
         if %errorlevel% neq 0 (
             call :mostrar_erro "Falha ao instalar o yarn."
             exit /b 1
-        }
+        )
     )
     
     :: Tentar instalação com yarn
@@ -454,11 +469,6 @@ if %errorlevel% equ 0 (
     )
 )
 
-:: Criar diretórios necessários, se não existirem
-if not exist logs mkdir logs
-if not exist messages mkdir messages
-if not exist storage mkdir storage
-
 if "%MODO_FOREGROUND%"=="true" (
     call :mostrar_progresso "Etapa 1/2: Inicializando bot WhatsApp para configuração..."
     call :mostrar_aviso "AGUARDE o QR code aparecer abaixo para escanear com seu WhatsApp:"
@@ -472,17 +482,25 @@ if "%MODO_FOREGROUND%"=="true" (
     echo.
     
     cd %DIR%\src\whatsapp
-    start /b cmd /c node whatsapp_bot.js
+    
+    :: Iniciar o bot do WhatsApp em uma nova janela permanente
+    start "Chaplain - WhatsApp Bot" /min cmd /c "title Chaplain - WhatsApp Bot && node whatsapp_bot.js && pause"
+    
+    :: Aguardar o serviço iniciar
+    call :mostrar_progresso "Aguardando o serviço WhatsApp iniciar..."
+    timeout /t 15 /nobreak > nul
+    
+    :: Verificar se o bot está em execução
+    tasklist /fi "imagename eq node.exe" /v | findstr /i "whatsapp_bot.js" >nul
     if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha ao iniciar o bot WhatsApp."
+        call :mostrar_erro "O bot WhatsApp não foi iniciado corretamente."
         exit /b 1
     )
     
-    echo Aguardando o serviço iniciar... (10 segundos)
-    timeout /t 10 /nobreak > nul
-    
     echo Aguardando QR Code e autenticação...
-    pause
+    echo Escaneie o QR Code na janela minimizada do WhatsApp Bot (verifique na barra de tarefas)
+    echo Após escanear, pressione qualquer tecla para continuar...
+    pause > nul
     
     :: Verificar se a autenticação foi concluída
     curl -s http://localhost:3000/api/status | findstr "ready" >nul
@@ -494,12 +512,9 @@ if "%MODO_FOREGROUND%"=="true" (
     
     call :mostrar_progresso "Etapa 2/2: Inicializando aplicação principal..."
     cd %DIR%
-    call venv\Scripts\activate.bat
-    start cmd /c "python src\main.py && pause"
-    if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha ao iniciar a aplicação principal."
-        exit /b 1
-    }
+    
+    :: Iniciar a aplicação principal em uma nova janela permanente
+    start "Chaplain - Aplicação Principal" cmd /k "call venv\Scripts\activate.bat && python src\main.py"
     
     :: Aguardar um pouco para garantir que o processo inicie
     timeout /t 5 /nobreak > nul
@@ -507,7 +522,7 @@ if "%MODO_FOREGROUND%"=="true" (
     :: Verificar se o processo está em execução
     tasklist /fi "imagename eq python.exe" /v | findstr /i "main.py" >nul
     if %errorlevel% neq 0 (
-        call :mostrar_erro "A aplicação principal não parece estar em execução."
+        call :mostrar_erro "A aplicação principal não foi iniciada corretamente."
         exit /b 1
     } else {
         call :mostrar_sucesso "Aplicação principal iniciada com sucesso!"
@@ -518,22 +533,24 @@ if "%MODO_FOREGROUND%"=="true" (
     call :mostrar_aviso "NOTA: Se esta é a primeira vez que você executa o sistema,"
     call :mostrar_aviso "você precisa usar a opção --foreground para escanear o QR code!"
     
+    :: Iniciar o bot do WhatsApp em uma nova janela permanente
     cd %DIR%\src\whatsapp
-    start cmd /c "node whatsapp_bot.js && pause"
+    start "Chaplain - WhatsApp Bot" /min cmd /c "title Chaplain - WhatsApp Bot && node whatsapp_bot.js && pause"
+    
+    :: Aguardar o serviço iniciar
+    call :mostrar_progresso "Aguardando o serviço WhatsApp iniciar..."
+    timeout /t 15 /nobreak > nul
+    
+    :: Verificar se o bot está em execução
+    tasklist /fi "imagename eq node.exe" /v | findstr /i "whatsapp_bot.js" >nul
     if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha ao iniciar o bot WhatsApp."
+        call :mostrar_erro "O bot WhatsApp não foi iniciado corretamente."
         exit /b 1
     }
     
-    :: Aguardar um pouco para garantir que o serviço WhatsApp inicie
-    timeout /t 10 /nobreak > nul
-    
+    :: Iniciar a aplicação principal em uma nova janela permanente
     cd %DIR%
-    start cmd /c "call venv\Scripts\activate.bat && python src\main.py && pause"
-    if %errorlevel% neq 0 (
-        call :mostrar_erro "Falha ao iniciar a aplicação principal."
-        exit /b 1
-    }
+    start "Chaplain - Aplicação Principal" cmd /k "call venv\Scripts\activate.bat && python src\main.py"
     
     :: Aguardar um pouco para garantir que o processo inicie
     timeout /t 5 /nobreak > nul
